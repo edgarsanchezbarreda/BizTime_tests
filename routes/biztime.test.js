@@ -21,7 +21,7 @@ beforeEach(async () => {
         VALUES ('spotify', 1000, false, null)
         RETURNING *`
     );
-    invoiceData = invoiceResponse.rows;
+    invoiceData = invoiceResponse.rows[0];
 });
 
 afterEach(async () => {
@@ -48,7 +48,7 @@ describe('GET /companies/:code', () => {
         const response = await request(app).get(
             `/companies/${testCompany.code}`
         );
-        testCompany.invoiceData = invoiceData.map((invoice) => invoice.id);
+        testCompany.invoiceData = [invoiceData.id];
 
         expect(response.statusCode).toBe(200);
         expect(response.body).toEqual({ company: testCompany });
@@ -113,6 +113,120 @@ describe('DELETE /companies/:code', () => {
     test('Deletes a company', async () => {
         const response = await request(app).delete(
             `/companies/${testCompany.code}`
+        );
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toEqual({ status: 'deleted' });
+    });
+});
+
+// invoices.js Routes
+
+describe('GET /invoices', () => {
+    test('Get all invoices.', async () => {
+        const response = await request(app).get('/invoices');
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toEqual({
+            invoices: [
+                {
+                    id: expect.any(Number),
+                    comp_code: 'spotify',
+                },
+            ],
+        });
+    });
+});
+
+describe('GET /invoices/:id', () => {
+    test('Gets a single invoice.', async () => {
+        const response = await request(app).get(`/invoices/${invoiceData.id}`);
+        console.log(response.body);
+        expect(response.statusCode).toBe(200);
+        // expect(response.body).toEqual({ invoice: invoiceData });
+        expect(response.body).toEqual({
+            invoice: {
+                id: expect.any(Number),
+                comp_code: 'spotify',
+                amt: 1000,
+                paid: false,
+                add_date: expect.any(String),
+                paid_date: null,
+                company: {
+                    code: 'spotify',
+                    name: 'Spotify',
+                    description: 'Swedish audio streaming company',
+                },
+            },
+        });
+    });
+    test('Responds with 404 for invalid invoice.', async () => {
+        const response = await request(app).get(`/invoices/0`);
+        expect(response.statusCode).toBe(404);
+        expect(response.body).toEqual({
+            error: {
+                message: 'Invoice with id of 0 does not exist.',
+                status: 404,
+            },
+        });
+    });
+});
+
+describe('POST /invoices', () => {
+    test('Posts an invoice.', async () => {
+        const response = await request(app).post('/invoices').send({
+            comp_code: 'spotify',
+            amt: 500,
+            paid: false,
+            paid_date: null,
+        });
+        expect(response.statusCode).toBe(201);
+        expect(response.body).toEqual({
+            invoice: {
+                id: expect.any(Number),
+                comp_code: 'spotify',
+                amt: 500,
+                paid: false,
+                add_date: expect.any(String),
+                paid_date: null,
+            },
+        });
+    });
+});
+
+describe('PUT /invoices/:id', () => {
+    test('Updates an invoice,', async () => {
+        const response = await request(app)
+            .put(`/invoices/${invoiceData.id}`)
+            .send({ amt: 333 });
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toEqual({
+            invoice: {
+                id: expect.any(Number),
+                comp_code: 'spotify',
+                amt: 333,
+                paid: false,
+                add_date: expect.any(String),
+                paid_date: null,
+            },
+        });
+    });
+    test('Response with 404 for invalid invoice.', async () => {
+        const response = await request(app)
+            .put(`/invoices/0`)
+            .send({ amt: 9000 });
+        expect(response.statusCode).toBe(404);
+        expect(response.body).toEqual({
+            error: {
+                message: 'Invoice with id of 0 does not exist.',
+                status: 404,
+            },
+        });
+    });
+});
+
+describe('DELETE /invoice/:id', () => {
+    test('Deletes an invoice.', async () => {
+        const response = await request(app).delete(
+            `/invoices/${invoiceData.id}`
         );
         expect(response.statusCode).toBe(200);
         expect(response.body).toEqual({ status: 'deleted' });
