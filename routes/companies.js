@@ -25,6 +25,11 @@ router.get('/:code', async (req, res, next) => {
             [code]
         );
 
+        const industriesResults = await db.query(
+            `SELECT id, industry_code FROM company_industry WHERE comp_code=$1`,
+            [code]
+        );
+
         if (companyResults.rows.length === 0) {
             throw new ExpressError(
                 `Company with code of ${code} does not exist.`,
@@ -34,8 +39,12 @@ router.get('/:code', async (req, res, next) => {
 
         const companyData = companyResults.rows[0];
         const invoiceData = invoicesResults.rows;
+        const companyIndustryData = industriesResults.rows;
 
-        companyData.invoiceData = invoiceData.map((invoice) => invoice.id);
+        companyData.invoices = invoiceData.map((invoice) => invoice.id);
+        companyData.industries = companyIndustryData.map(
+            (industry) => industry
+        );
 
         return res.json({ company: companyData });
     } catch (err) {
