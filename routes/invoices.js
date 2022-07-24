@@ -1,8 +1,11 @@
 const express = require('express');
+const date = require('date-and-time');
 const ExpressError = require('../expressError');
 const router = express.Router();
 const db = require('../db');
+const { DatabaseError } = require('pg');
 
+const now = new Date();
 // Routes
 
 router.get('/', async (req, res, next) => {
@@ -78,13 +81,35 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { amt } = req.body;
+        const { amt, paid } = req.body;
+        let paidDate = null;
+
+        const currentResult = await db.query(
+            `SELECT paid
+            FROM invoices
+            WHERE id = $1`,
+            [id]
+        );
+
+        if (currentResult.rows.length === 0) {
+            throw new ExpressError(`No such invoice ${id}`, 404);
+        }
+        const currentPaidDate = currentResult.rows[0].paid_date;
+
+        if (!currentPaidDate && paid) {
+            paidDate = new Date();
+        } else if (!paid) {
+            paidDate = null;
+        } else {
+            paidDate = currentPaidDate;
+        }
+
         const results = await db.query(
             `UPDATE invoices
-			SET amt=$1
-			WHERE id=$2
+			SET amt=$1, paid=$2, paid_date=$3
+			WHERE id=$4
 			RETURNING *`,
-            [amt, id]
+            [amt, paid, paidDate, id]
         );
         if (results.rows.length === 0) {
             throw new ExpressError(
